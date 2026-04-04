@@ -1,6 +1,14 @@
-import pyspiel
 import numpy as np
-from app.helpers import extract_obs, legal_actions, auto_resolve_chance_nodes, state_return, state_reward, parse_board_numbers
+import pyspiel
+
+from app.helpers import (
+    auto_resolve_chance_nodes,
+    extract_obs,
+    legal_actions,
+    parse_board_numbers,
+    state_return,
+    state_reward,
+)
 
 
 class OpenSpiel2048Env:
@@ -34,13 +42,19 @@ class OpenSpiel2048Env:
         self.state.apply_action(int(action))
         auto_resolve_chance_nodes(self.state, self.rng)
 
-        next_obs = extract_obs(self.state, self.player_id) if not self.state.is_terminal() else np.zeros(self.obs_dim, dtype=np.float32)
+        next_obs = (
+            extract_obs(self.state, self.player_id)
+            if not self.state.is_terminal()
+            else np.zeros(self.obs_dim, dtype=np.float32)
+        )
         new_return = state_return(self.state, self.player_id)
 
         reward = new_return - prev_return
         done = self.state.is_terminal()
         info = {
-            "legal_actions": legal_actions(self.state, self.player_id) if not done else [],
+            "legal_actions": legal_actions(self.state, self.player_id)
+            if not done
+            else [],
             "state_return": new_return,
             "state_reward_raw": state_reward(self.state, self.player_id),
             "board": parse_board_numbers(self.state),

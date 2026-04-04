@@ -24,5 +24,12 @@
   "state_encoding": "flat observation tensor from app.helpers.extract_obs",
   "state_storage": "pre-action and post-action observations in eval_rollout.npz",
   "episode_boundaries": "episode_ids and step_ids define episode grouping",
-  "outputs_dir": "./output/dqn"
+  "summary": {
+    "avg_return": 2453.2,
+    "std_return": 1237.3494898370468,
+    "min_return": 560.0,
+    "max_return": 5072.0,
+    "avg_length": 213.0,
+    "avg_max_tile": 211.2
+  }
 }

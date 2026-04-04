@@ -1,15 +1,16 @@
-import re
 import random
-import numpy as np
-import torch
+import re
 from collections import namedtuple
 
+import numpy as np
+import torch
 
 # Lightweight RL transition container used by the replay buffer
 Transition = namedtuple(
     "Transition",
     ["obs", "action", "reward", "next_obs", "done", "legal_mask", "next_legal_mask"],
 )
+
 
 def extract_obs(state, player_id=0):
     """Return a flat float32 observation vector for the player."""
@@ -74,8 +75,22 @@ def parse_board_numbers(state):
     return None
 
 
+def epsilon_by_step(
+    step: int,
+    eps_start: float = 1.0,
+    eps_end: float = 0.05,
+    eps_decay_steps: int = 20_000,
+):
+    """Linear epsilon schedule from eps_start to eps_end over eps_decay_steps."""
+    decay_steps = max(1, int(eps_decay_steps))
+    frac = min(1.0, step / decay_steps)
+    return eps_start + frac * (eps_end - eps_start)
+
+
 @torch.no_grad()
-def masked_greedy_action(q_net, obs, legal_actions_list, num_actions, epsilon=0.0, device=None):
+def masked_greedy_action(
+    q_net, obs, legal_actions_list, num_actions, epsilon=0.0, device=None
+):
     if random.random() < epsilon:
         return random.choice(legal_actions_list)
 
@@ -98,5 +113,6 @@ __all__ = [
     "state_return",
     "state_reward",
     "parse_board_numbers",
+    "epsilon_by_step",
     "masked_greedy_action",
 ]
