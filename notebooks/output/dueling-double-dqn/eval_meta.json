@@ -24,5 +24,12 @@
   "state_encoding": "flat observation tensor from app.helpers.extract_obs",
   "state_storage": "pre-action and post-action observations in eval_rollout.npz",
   "episode_boundaries": "episode_ids and step_ids define episode grouping",
-  "outputs_dir": "./output/dueling-double-dqn"
+  "summary": {
+    "avg_return": 2511.2,
+    "std_return": 1152.7522543894677,
+    "min_return": 620.0,
+    "max_return": 3968.0,
+    "avg_length": 223.6,
+    "avg_max_tile": 192.0
+  }
 }
