@@ -88,6 +88,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def train(args: argparse.Namespace, device: torch.device):
+    log_episodes = bool(getattr(args, "log_episodes", True))
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -182,15 +183,16 @@ def train(args: argparse.Namespace, device: torch.device):
             )
 
         mean_loss = float(np.mean(ep_losses)) if ep_losses else float("nan")
-        print(
-            f"Episode {episode}/{args.num_episodes} | "
-            f"return={ep_return:.1f} | "
-            f"length={ep_len} | "
-            f"loss={mean_loss:.4f} | "
-            f"max_tile={max_tile} | "
-            f"illegal_attempts={illegal_attempts} | "
-            f"eval_return={eval_return:.1f}"
-        )
+        if log_episodes:
+            print(
+                f"Episode {episode}/{args.num_episodes} | "
+                f"return={ep_return:.1f} | "
+                f"length={ep_len} | "
+                f"loss={mean_loss:.4f} | "
+                f"max_tile={max_tile} | "
+                f"illegal_attempts={illegal_attempts} | "
+                f"eval_return={eval_return:.1f}"
+            )
 
     return q_net, target_net, obs_dim, num_actions
 
@@ -202,6 +204,7 @@ def evaluate_policy(
     device: torch.device,
 ):
     """Run multi-seed evaluation and print summary metrics."""
+    print_summary = bool(getattr(args, "print_eval_summary", True))
     eval_data = evaluate_multi_seed(
         q_net=q_net,
         env_class=OpenSpiel2048Env,
@@ -213,12 +216,13 @@ def evaluate_policy(
     )
 
     summary = eval_data["summary"]
-    print(f"Results over {args.num_eval_seeds} seeds:")
-    print(f"  Average return:           {summary['avg_return']:.1f} +/- {summary['std_return']:.1f}")
-    print(f"  Average episode length:   {summary['avg_length']:.1f}")
-    print(f"  Average max tile:         {summary['avg_max_tile']:.1f}")
-    print(f"  Average illegal attempts: {summary['avg_illegal_action_attempts']:.1f}")
-    print(f"  Total illegal attempts:   {summary['total_illegal_action_attempts']}")
+    if print_summary:
+        print(f"Results over {args.num_eval_seeds} seeds:")
+        print(f"  Average return:           {summary['avg_return']:.1f} +/- {summary['std_return']:.1f}")
+        print(f"  Average episode length:   {summary['avg_length']:.1f}")
+        print(f"  Average max tile:         {summary['avg_max_tile']:.1f}")
+        print(f"  Average illegal attempts: {summary['avg_illegal_action_attempts']:.1f}")
+        print(f"  Total illegal attempts:   {summary['total_illegal_action_attempts']}")
 
     return eval_data
 
@@ -232,8 +236,10 @@ def save_artifacts(
     eval_data,
 ):
     """Save checkpoint and evaluation files only when output_dir is explicitly provided."""
+    log_save = bool(getattr(args, "log_save", True))
     if not args.output_dir:
-        print("Skipping save: pass --output_dir to persist checkpoint and evaluation files.")
+        if log_save:
+            print("Skipping save: pass --output_dir to persist checkpoint and evaluation files.")
         return
 
     os.makedirs(args.output_dir, exist_ok=True)
@@ -245,8 +251,9 @@ def save_artifacts(
         source_notebook="Baseline DQN",
         checkpoint_file="dqn.pt",
     )
-    print(f"Saved evaluation rollout archive to: {npz_path}")
-    print(f"Saved evaluation metadata to: {json_path}")
+    if log_save:
+        print(f"Saved evaluation rollout archive to: {npz_path}")
+        print(f"Saved evaluation metadata to: {json_path}")
 
     checkpoint_path = os.path.join(args.output_dir, "dqn.pt")
     torch.save(
@@ -258,7 +265,8 @@ def save_artifacts(
         },
         checkpoint_path,
     )
-    print(f"Saved checkpoint to: {checkpoint_path}")
+    if log_save:
+        print(f"Saved checkpoint to: {checkpoint_path}")
 
 
 def main():
