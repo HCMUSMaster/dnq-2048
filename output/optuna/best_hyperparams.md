@@ -60,3 +60,45 @@ Best trial for dueling_double_dqn: #6
     eps_decay_steps: 10000
     grad_clip: 1.1189121985227757
 ```
+
+```
+Best trial for qr_dqn: #16
+  Score: 3038.938
+  avg_return: 3169.4
+  std_return: 1304.6
+  avg_length: 265.6
+  avg_max_tile: 249.6
+  avg_illegal_attempts: 79.2
+  best_params:
+    buffer_size: 200000
+    batch_size: 256
+    gamma: 0.9922439589929455
+    lr: 0.0001017167470236331
+    target_sync_every: 1000
+    learn_start: 5000
+    learn_every: 2
+    eps_end: 0.16221083409453396
+    eps_decay_steps: 20000
+    grad_clip: 15.05157300548717
+```
+
+```
+Best trial for h_dqn: #6
+  Score: 2255.863
+  avg_return: 2407.0
+  std_return: 1511.4
+  avg_length: 207.7
+  avg_max_tile: 206.4
+  avg_illegal_attempts: 56.9
+  best_params:
+    buffer_size: 20000
+    batch_size: 256
+    gamma: 0.9974851723474096
+    lr: 0.00017931204091428885
+    target_sync_every: 250
+    learn_start: 5000
+    learn_every: 8
+    eps_end: 0.04539376238997539
+    eps_decay_steps: 20000
+    grad_clip: 7.010189344276133
+```

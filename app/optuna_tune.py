@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import optuna
 import torch
 
-from app import dqn, double_dqn, dueling_double_dqn
+from app import dqn, double_dqn, dueling_double_dqn, h_dqn, qr_dqn
 
 ALGO_REGISTRY = {
     "dqn": {
@@ -22,6 +22,16 @@ ALGO_REGISTRY = {
         "evaluate": dueling_double_dqn.evaluate_policy,
         "save": dueling_double_dqn.save_artifacts,
     },
+    "qr_dqn": {
+        "train": qr_dqn.train,
+        "evaluate": qr_dqn.evaluate_policy,
+        "save": qr_dqn.save_artifacts,
+    },
+    "h_dqn": {
+        "train": h_dqn.train,
+        "evaluate": h_dqn.evaluate_policy,
+        "save": h_dqn.save_artifacts,
+    },
 }
 
 
@@ -31,7 +41,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--algorithm",
-        choices=["dqn", "double_dqn", "dueling_double_dqn", "all"],
+        choices=["dqn", "double_dqn", "dueling_double_dqn", "qr_dqn", "h_dqn", "all"],
         default="all",
         help="Which algorithm to tune.",
     )
@@ -111,6 +121,7 @@ def suggest_hparams(trial: optuna.Trial) -> dict:
 
 
 def make_trial_args(cli_args: argparse.Namespace, hparams: dict, output_dir=None) -> SimpleNamespace:
+    meta_batch_size = 32 if hparams["batch_size"] == 64 else 64
     return SimpleNamespace(
         seed=cli_args.seed,
         num_episodes=cli_args.num_episodes,
@@ -132,6 +143,99 @@ def make_trial_args(cli_args: argparse.Namespace, hparams: dict, output_dir=None
         log_episodes=False,
         print_eval_summary=False,
         log_save=False,
+        # QR-DQN args
+        num_quantiles=51,
+        kappa=1.0,
+        # H-DQN args
+        goal_tiles="32,64,128,256,512,1024,2048",
+        option_duration=8,
+        intrinsic_success_reward=1.0,
+        intrinsic_step_penalty=-0.01,
+        ctrl_buffer_size=hparams["buffer_size"],
+        ctrl_batch_size=hparams["batch_size"],
+        ctrl_gamma=hparams["gamma"],
+        ctrl_lr=hparams["lr"],
+        ctrl_target_sync_every=hparams["target_sync_every"],
+        ctrl_learn_start=hparams["learn_start"],
+        ctrl_learn_every=hparams["learn_every"],
+        meta_buffer_size=hparams["buffer_size"],
+        meta_batch_size=meta_batch_size,
+        meta_gamma=hparams["gamma"],
+        meta_lr=hparams["lr"],
+        meta_target_sync_every=50,
+        meta_learn_start=500,
+        meta_learn_every=2,
+        meta_eps_start=1.0,
+        meta_eps_end=hparams["eps_end"],
+        meta_eps_decay_steps=max(2000, hparams["eps_decay_steps"] // 10),
+    )
+
+
+def train_and_eval(algo_name: str, algo: dict, trial_args: SimpleNamespace, device: torch.device):
+    if algo_name == "qr_dqn":
+        q_net, target_net, q_policy, obs_dim, num_actions = algo["train"](trial_args, device)
+        eval_data = algo["evaluate"](trial_args, q_policy, num_actions, device)
+        return eval_data, {
+            "q_net": q_net,
+            "target_net": target_net,
+            "obs_dim": obs_dim,
+            "num_actions": num_actions,
+        }
+
+    if algo_name == "h_dqn":
+        (
+            controller_net,
+            target_controller_net,
+            meta_net,
+            target_meta_net,
+            q_policy,
+            goals,
+            obs_dim,
+            num_actions,
+        ) = algo["train"](trial_args, device)
+        eval_data = algo["evaluate"](trial_args, q_policy, num_actions, device)
+        return eval_data, {
+            "controller_net": controller_net,
+            "target_controller_net": target_controller_net,
+            "meta_net": meta_net,
+            "target_meta_net": target_meta_net,
+            "goals": goals,
+            "obs_dim": obs_dim,
+            "num_actions": num_actions,
+        }
+
+    q_net, target_net, obs_dim, num_actions = algo["train"](trial_args, device)
+    eval_data = algo["evaluate"](trial_args, q_net, num_actions, device)
+    return eval_data, {
+        "q_net": q_net,
+        "target_net": target_net,
+        "obs_dim": obs_dim,
+        "num_actions": num_actions,
+    }
+
+
+def save_best(algo_name: str, algo: dict, best_args: SimpleNamespace, model_bundle: dict, eval_data):
+    if algo_name == "h_dqn":
+        algo["save"](
+            best_args,
+            model_bundle["controller_net"],
+            model_bundle["target_controller_net"],
+            model_bundle["meta_net"],
+            model_bundle["target_meta_net"],
+            model_bundle["goals"],
+            model_bundle["obs_dim"],
+            model_bundle["num_actions"],
+            eval_data,
+        )
+        return
+
+    algo["save"](
+        best_args,
+        model_bundle["q_net"],
+        model_bundle["target_net"],
+        model_bundle["obs_dim"],
+        model_bundle["num_actions"],
+        eval_data,
     )
 
 
@@ -144,8 +248,7 @@ def tune_one_algorithm(algo_name: str, cli_args: argparse.Namespace):
         hparams = suggest_hparams(trial)
         trial_args = make_trial_args(cli_args, hparams)
 
-        q_net, target_net, obs_dim, num_actions = algo["train"](trial_args, device)
-        eval_data = algo["evaluate"](trial_args, q_net, num_actions, device)
+        eval_data, _ = train_and_eval(algo_name, algo, trial_args, device)
         summary = eval_data["summary"]
 
         avg_return = float(summary["avg_return"])
@@ -195,14 +298,13 @@ def tune_one_algorithm(algo_name: str, cli_args: argparse.Namespace):
         best_args.log_save = True
 
         print(f"\nRetraining best {algo_name} config and saving to: {save_dir}")
-        q_net, target_net, obs_dim, num_actions = algo["train"](best_args, device)
-        eval_data = algo["evaluate"](best_args, q_net, num_actions, device)
-        algo["save"](best_args, q_net, target_net, obs_dim, num_actions, eval_data)
+        eval_data, model_bundle = train_and_eval(algo_name, algo, best_args, device)
+        save_best(algo_name, algo, best_args, model_bundle, eval_data)
 
 
 def main():
     args = build_parser().parse_args()
-    algorithms = ["dqn", "double_dqn", "dueling_double_dqn"] if args.algorithm == "all" else [args.algorithm]
+    algorithms = ["dqn", "double_dqn", "dueling_double_dqn", "qr_dqn", "h_dqn"] if args.algorithm == "all" else [args.algorithm]
 
     for algo_name in algorithms:
         tune_one_algorithm(algo_name, args)

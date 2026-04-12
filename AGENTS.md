@@ -1,2 +1,3 @@
+- Follow Python best practices for code style and organization
 - Always use `uv` to run any Python scripts in this repository
 - Use `uv add` to add new dependencies instead of `pip install`
