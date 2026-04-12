@@ -20,7 +20,7 @@ def greedy_rollout(
     num_actions: int,
     max_steps: int = 5_000,
     device: Optional[torch.device] = None,
-) -> Tuple[float, int, int, List[Dict]]:
+) -> Tuple[float, int, int, int, List[Dict]]:
     """
     Execute a single greedy rollout (no exploration) and collect transition data.
 
@@ -32,9 +32,9 @@ def greedy_rollout(
         device: PyTorch device.
 
     Returns:
-        Tuple of (episode_return, episode_length, max_tile, rollout_list)
+        Tuple of (episode_return, episode_length, max_tile, illegal_action_attempts, rollout_list)
         where rollout_list is a list of dicts with keys:
-        action, reward, legal_actions, board, state_text
+        action, reward, legal_actions, board, state_text, raw_greedy_action, illegal_action_attempt
     """
     if device is None:
         device = torch.device("cpu")
@@ -44,6 +44,7 @@ def greedy_rollout(
     episode_return = 0.0
     episode_length = 0
     max_tile = 0
+    illegal_action_attempts = 0
     rollout = []
 
     while not done and episode_length < max_steps:
@@ -52,6 +53,14 @@ def greedy_rollout(
             max_tile = max(max_tile, int(np.max(obs)))
 
         legal = env.legal_actions()
+        with torch.no_grad():
+            obs_t = torch.tensor(obs, dtype=torch.float32, device=device).unsqueeze(0)
+            q_values = q_net(obs_t).squeeze(0)
+        raw_greedy_action = int(torch.argmax(q_values).item())
+        illegal_action_attempt = raw_greedy_action not in legal
+        if illegal_action_attempt:
+            illegal_action_attempts += 1
+
         action = masked_greedy_action(
             q_net=q_net,
             obs=obs,
@@ -69,13 +78,15 @@ def greedy_rollout(
                 "legal_actions": legal,
                 "board": info.get("board"),
                 "state_text": info.get("state_text"),
+                "raw_greedy_action": raw_greedy_action,
+                "illegal_action_attempt": bool(illegal_action_attempt),
             }
         )
         obs = next_obs
         episode_return += reward
         episode_length += 1
 
-    return episode_return, episode_length, max_tile, rollout
+    return episode_return, episode_length, max_tile, illegal_action_attempts, rollout
 
 
 def evaluate_multi_seed(
@@ -120,8 +131,10 @@ def evaluate_multi_seed(
     eval_rollout_rewards = []
     eval_rollout_dones = []
     eval_rollout_legal_masks = []
+    eval_rollout_illegal_action_attempt_flags = []
     eval_rollout_episode_returns = []
     eval_rollout_episode_lengths = []
+    eval_rollout_episode_illegal_action_attempts = []
 
     multi_seed_returns = []
     multi_seed_lengths = []
@@ -135,6 +148,7 @@ def evaluate_multi_seed(
         ret = 0.0
         steps = 0
         max_tile = 0
+        illegal_attempts = 0
 
         eval_rollout_seed_ids.append(eval_seed)
 
@@ -145,6 +159,14 @@ def evaluate_multi_seed(
 
             legal = eval_env.legal_actions()
             legal_mask = make_legal_mask(num_actions, legal)
+            with torch.no_grad():
+                obs_t = torch.tensor(obs, dtype=torch.float32, device=device).unsqueeze(0)
+                q_values = q_net(obs_t).squeeze(0)
+            raw_greedy_action = int(torch.argmax(q_values).item())
+            illegal_action_attempt = raw_greedy_action not in legal
+            if illegal_action_attempt:
+                illegal_attempts += 1
+
             action = masked_greedy_action(
                 q_net=q_net,
                 obs=obs,
@@ -163,6 +185,7 @@ def evaluate_multi_seed(
             eval_rollout_rewards.append(float(reward))
             eval_rollout_dones.append(bool(done))
             eval_rollout_legal_masks.append(legal_mask.astype(np.bool_))
+            eval_rollout_illegal_action_attempt_flags.append(bool(illegal_action_attempt))
 
             obs = next_obs
             ret += reward
@@ -173,12 +196,15 @@ def evaluate_multi_seed(
         multi_seed_max_tiles.append(max_tile)
         eval_rollout_episode_returns.append(ret)
         eval_rollout_episode_lengths.append(steps)
+        eval_rollout_episode_illegal_action_attempts.append(illegal_attempts)
 
     # Compute summary statistics
     avg_return = float(np.mean(multi_seed_returns))
     std_return = float(np.std(multi_seed_returns))
     avg_length = float(np.mean(multi_seed_lengths))
     avg_max_tile = float(np.mean(multi_seed_max_tiles))
+    avg_illegal_action_attempts = float(np.mean(eval_rollout_episode_illegal_action_attempts))
+    total_illegal_action_attempts = int(np.sum(eval_rollout_episode_illegal_action_attempts))
 
     return {
         "seed_ids": np.asarray(eval_rollout_seed_ids, dtype=np.int64),
@@ -190,8 +216,14 @@ def evaluate_multi_seed(
         "rewards": np.asarray(eval_rollout_rewards, dtype=np.float32),
         "dones": np.asarray(eval_rollout_dones, dtype=np.bool_),
         "legal_masks": np.stack(eval_rollout_legal_masks).astype(np.bool_),
+        "illegal_action_attempt_flags": np.asarray(
+            eval_rollout_illegal_action_attempt_flags, dtype=np.bool_
+        ),
         "episode_returns": np.asarray(eval_rollout_episode_returns, dtype=np.float32),
         "episode_lengths": np.asarray(eval_rollout_episode_lengths, dtype=np.int64),
+        "episode_illegal_action_attempts": np.asarray(
+            eval_rollout_episode_illegal_action_attempts, dtype=np.int64
+        ),
         "max_tiles": np.asarray(multi_seed_max_tiles, dtype=np.int64),
         "summary": {
             "avg_return": avg_return,
@@ -200,6 +232,8 @@ def evaluate_multi_seed(
             "max_return": float(np.max(multi_seed_returns)),
             "avg_length": avg_length,
             "avg_max_tile": avg_max_tile,
+            "avg_illegal_action_attempts": avg_illegal_action_attempts,
+            "total_illegal_action_attempts": total_illegal_action_attempts,
         },
     }
 
@@ -241,8 +275,10 @@ def save_eval_results(
         rewards=eval_data["rewards"],
         dones=eval_data["dones"],
         legal_masks=eval_data["legal_masks"],
+        illegal_action_attempt_flags=eval_data["illegal_action_attempt_flags"],
         episode_returns=eval_data["episode_returns"],
         episode_lengths=eval_data["episode_lengths"],
+        episode_illegal_action_attempts=eval_data["episode_illegal_action_attempts"],
         max_tiles=eval_data["max_tiles"],
         num_actions=np.int64(num_actions),
         obs_dim=np.int64(obs_dim),
