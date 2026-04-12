@@ -105,6 +105,89 @@ def masked_greedy_action(
     return action
 
 
+def dqn_update(
+    batch,
+    q_net,
+    target_net,
+    optimizer,
+    gamma: float,
+    grad_clip: float,
+    device,
+):
+    """Run one DQN update step and return scalar loss."""
+    obs = torch.tensor(np.asarray(batch.obs), dtype=torch.float32, device=device)
+    actions = torch.tensor(batch.action, dtype=torch.int64, device=device).unsqueeze(1)
+    rewards = torch.tensor(batch.reward, dtype=torch.float32, device=device)
+    next_obs = torch.tensor(np.asarray(batch.next_obs), dtype=torch.float32, device=device)
+    dones = torch.tensor(batch.done, dtype=torch.float32, device=device)
+
+    next_legal_mask = torch.tensor(
+        np.asarray(batch.next_legal_mask), dtype=torch.bool, device=device
+    )
+
+    q_values = q_net(obs)
+    q_sa = q_values.gather(1, actions).squeeze(1)
+
+    with torch.no_grad():
+        next_q = target_net(next_obs)
+        next_q = next_q.masked_fill(~next_legal_mask, -1e9)
+
+        next_max_q = torch.max(next_q, dim=1).values
+        next_max_q = torch.where(dones > 0.5, torch.zeros_like(next_max_q), next_max_q)
+
+        target = rewards + gamma * next_max_q
+
+    loss = torch.nn.functional.mse_loss(q_sa, target)
+
+    optimizer.zero_grad()
+    loss.backward()
+    torch.nn.utils.clip_grad_norm_(q_net.parameters(), grad_clip)
+    optimizer.step()
+
+    return float(loss.item())
+
+
+def double_dqn_update(
+    batch,
+    q_net,
+    target_net,
+    optimizer,
+    gamma: float,
+    grad_clip: float,
+    device,
+):
+    """Run one Double DQN update step and return scalar loss."""
+    obs = torch.tensor(np.asarray(batch.obs), dtype=torch.float32, device=device)
+    actions = torch.tensor(batch.action, dtype=torch.int64, device=device).unsqueeze(1)
+    rewards = torch.tensor(batch.reward, dtype=torch.float32, device=device)
+    next_obs = torch.tensor(np.asarray(batch.next_obs), dtype=torch.float32, device=device)
+    dones = torch.tensor(batch.done, dtype=torch.float32, device=device)
+    next_legal_mask = torch.tensor(
+        np.asarray(batch.next_legal_mask), dtype=torch.bool, device=device
+    )
+
+    q_values = q_net(obs)
+    q_sa = q_values.gather(1, actions).squeeze(1)
+
+    with torch.no_grad():
+        next_online_q = q_net(next_obs)
+        next_online_q = next_online_q.masked_fill(~next_legal_mask, -1e9)
+        next_actions = torch.argmax(next_online_q, dim=1, keepdim=True)
+
+        next_target_q = target_net(next_obs).gather(1, next_actions).squeeze(1)
+        next_target_q = torch.where(dones > 0.5, torch.zeros_like(next_target_q), next_target_q)
+        target = rewards + gamma * next_target_q
+
+    loss = torch.nn.functional.mse_loss(q_sa, target)
+
+    optimizer.zero_grad()
+    loss.backward()
+    torch.nn.utils.clip_grad_norm_(q_net.parameters(), grad_clip)
+    optimizer.step()
+
+    return float(loss.item())
+
+
 __all__ = [
     "extract_obs",
     "legal_actions",
@@ -115,4 +198,6 @@ __all__ = [
     "parse_board_numbers",
     "epsilon_by_step",
     "masked_greedy_action",
+    "dqn_update",
+    "double_dqn_update",
 ]
