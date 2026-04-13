@@ -1,0 +1,74 @@
+[
+  {
+    "num_episodes": 300,
+    "output_dir": "output/survey/qr-dqn/episodes_300",
+    "summary": {
+      "avg_return": 2171.6,
+      "std_return": 1093.3685929273806,
+      "avg_length": 197.76,
+      "avg_max_tile": 176.32,
+      "avg_illegal_action_attempts": 47.76,
+      "total_illegal_action_attempts": 4776
+    }
+  },
+  {
+    "num_episodes": 500,
+    "output_dir": "output/survey/qr-dqn/episodes_500",
+    "summary": {
+      "avg_return": 2186.8,
+      "std_return": 1045.4404621976325,
+      "avg_length": 199.05,
+      "avg_max_tile": 179.52,
+      "avg_illegal_action_attempts": 46.78,
+      "total_illegal_action_attempts": 4678
+    }
+  },
+  {
+    "num_episodes": 1000,
+    "output_dir": "output/survey/qr-dqn/episodes_1000",
+    "summary": {
+      "avg_return": 2203.44,
+      "std_return": 1111.338799106735,
+      "avg_length": 200.92,
+      "avg_max_tile": 180.0,
+      "avg_illegal_action_attempts": 40.17,
+      "total_illegal_action_attempts": 4017
+    }
+  },
+  {
+    "num_episodes": 2000,
+    "output_dir": "output/survey/qr-dqn/episodes_2000",
+    "summary": {
+      "avg_return": 2488.08,
+      "std_return": 1342.9550676027845,
+      "avg_length": 216.42,
+      "avg_max_tile": 209.28,
+      "avg_illegal_action_attempts": 50.24,
+      "total_illegal_action_attempts": 5024
+    }
+  },
+  {
+    "num_episodes": 3000,
+    "output_dir": "output/survey/qr-dqn/episodes_3000",
+    "summary": {
+      "avg_return": 2272.52,
+      "std_return": 1022.1443584934567,
+      "avg_length": 206.45,
+      "avg_max_tile": 182.08,
+      "avg_illegal_action_attempts": 47.94,
+      "total_illegal_action_attempts": 4794
+    }
+  },
+  {
+    "num_episodes": 5000,
+    "output_dir": "output/survey/qr-dqn/episodes_5000",
+    "summary": {
+      "avg_return": 2956.92,
+      "std_return": 1293.7582902536315,
+      "avg_length": 246.49,
+      "avg_max_tile": 251.84,
+      "avg_illegal_action_attempts": 60.2,
+      "total_illegal_action_attempts": 6020
+    }
+  }
+]

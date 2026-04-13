@@ -1,0 +1,74 @@
+[
+  {
+    "num_episodes": 300,
+    "output_dir": "output/survey/double-dqn/episodes_300",
+    "summary": {
+      "avg_return": 1387.16,
+      "std_return": 722.8663599864086,
+      "avg_length": 145.55,
+      "avg_max_tile": 112.32,
+      "avg_illegal_action_attempts": 32.67,
+      "total_illegal_action_attempts": 3267
+    }
+  },
+  {
+    "num_episodes": 500,
+    "output_dir": "output/survey/double-dqn/episodes_500",
+    "summary": {
+      "avg_return": 1178.72,
+      "std_return": 713.6208248082451,
+      "avg_length": 126.2,
+      "avg_max_tile": 108.16,
+      "avg_illegal_action_attempts": 28.73,
+      "total_illegal_action_attempts": 2873
+    }
+  },
+  {
+    "num_episodes": 1000,
+    "output_dir": "output/survey/double-dqn/episodes_1000",
+    "summary": {
+      "avg_return": 1216.84,
+      "std_return": 648.3034585747635,
+      "avg_length": 129.65,
+      "avg_max_tile": 104.96,
+      "avg_illegal_action_attempts": 28.62,
+      "total_illegal_action_attempts": 2862
+    }
+  },
+  {
+    "num_episodes": 2000,
+    "output_dir": "output/survey/double-dqn/episodes_2000",
+    "summary": {
+      "avg_return": 1145.36,
+      "std_return": 526.5495896874291,
+      "avg_length": 124.63,
+      "avg_max_tile": 105.12,
+      "avg_illegal_action_attempts": 24.39,
+      "total_illegal_action_attempts": 2439
+    }
+  },
+  {
+    "num_episodes": 3000,
+    "output_dir": "output/survey/double-dqn/episodes_3000",
+    "summary": {
+      "avg_return": 1438.36,
+      "std_return": 852.5551421462426,
+      "avg_length": 144.77,
+      "avg_max_tile": 129.28,
+      "avg_illegal_action_attempts": 32.33,
+      "total_illegal_action_attempts": 3233
+    }
+  },
+  {
+    "num_episodes": 5000,
+    "output_dir": "output/survey/double-dqn/episodes_5000",
+    "summary": {
+      "avg_return": 1276.96,
+      "std_return": 612.8444161449136,
+      "avg_length": 134.19,
+      "avg_max_tile": 117.76,
+      "avg_illegal_action_attempts": 28.84,
+      "total_illegal_action_attempts": 2884
+    }
+  }
+]
